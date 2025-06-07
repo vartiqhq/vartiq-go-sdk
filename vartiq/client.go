@@ -27,7 +27,7 @@ type Client struct {
 
 // New creates a new Vartiq API client. If baseURL is not provided, it defaults to https://api.us.vartiq.com
 func New(apiKey string, baseURL ...string) *Client {
-	url := "https://api.us.vartiq.com"
+	url := "http://localhost:4000"
 	if len(baseURL) > 0 && baseURL[0] != "" {
 		url = baseURL[0]
 	}

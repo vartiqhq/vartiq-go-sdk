@@ -2,6 +2,7 @@ package vartiq
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -20,23 +21,22 @@ const (
 
 type WebhookAuth struct {
 	Method       AuthMethod `json:"method"`
-	UserName     string     `json:"userName,omitempty"`
-	Password     string     `json:"password,omitempty"`
-	APIKey       string     `json:"apiKey,omitempty"`
-	APIKeyHeader string     `json:"apiKeyHeader,omitempty"`
 	HMACHeader   string     `json:"hmacHeader,omitempty"`
 	HMACSecret   string     `json:"hmacSecret,omitempty"`
+	APIKey       string     `json:"apiKey,omitempty"`
+	APIKeyHeader string     `json:"apiKeyHeader,omitempty"`
+	UserName     string     `json:"userName,omitempty"`
+	Password     string     `json:"password,omitempty"`
 }
 
 type Webhook struct {
 	ID            string       `json:"id"`
-	Name          string       `json:"name"`
 	URL           string       `json:"url"`
-	AppID         string       `json:"app"`
-	Secret        string       `json:"secret"`
+	AppID         string       `json:"appId"`
+	Company       string       `json:"company"`
 	CustomHeaders []Header     `json:"customHeaders"`
 	Headers       []Header     `json:"headers"`
-	Auth          *WebhookAuth `json:"auth,omitempty"`
+	AuthMethod    *WebhookAuth `json:"authMethod,omitempty"`
 	CreatedAt     string       `json:"createdAt"`
 	UpdatedAt     string       `json:"updatedAt"`
 }
@@ -47,7 +47,6 @@ type Header struct {
 }
 
 type CreateWebhookRequest struct {
-	Name          string   `json:"name"`
 	URL           string   `json:"url"`
 	AppID         string   `json:"appId"`
 	CustomHeaders []Header `json:"customHeaders,omitempty"`
@@ -105,66 +104,90 @@ func (s *WebhookService) Create(ctx context.Context, req *CreateWebhookRequest) 
 		return nil, err
 	}
 
-	// Convert the flattened request to the internal structure
-	requestBody := struct {
-		Name          string       `json:"name"`
-		URL           string       `json:"url"`
-		AppID         string       `json:"appId"`
-		CustomHeaders []Header     `json:"customHeaders,omitempty"`
-		Auth          *WebhookAuth `json:"auth,omitempty"`
-	}{
-		Name:          req.Name,
-		URL:           req.URL,
-		AppID:         req.AppID,
-		CustomHeaders: req.CustomHeaders,
-	}
-
-	if req.AuthMethod != "" {
-		requestBody.Auth = &WebhookAuth{
-			Method:       AuthMethod(req.AuthMethod),
-			UserName:     req.UserName,
-			Password:     req.Password,
-			APIKey:       req.APIKey,
-			APIKeyHeader: req.APIKeyHeader,
-			HMACHeader:   req.HMACHeader,
-			HMACSecret:   req.HMACSecret,
-		}
-	}
-
+	// Send the request exactly as provided, since it matches the server's validation schema
 	resp := &WebhookResponse{}
-	_, err := s.client.resty.R().
+	httpResp, err := s.client.resty.R().
 		SetContext(ctx).
-		SetBody(requestBody).
+		SetBody(req). // Send the request directly without restructuring
 		SetResult(resp).
 		Post("/webhooks")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create webhook: %w", err)
 	}
+
+	// Debug logging
+	fmt.Printf("Webhook Create Response Status: %s\n", httpResp.Status())
+	fmt.Printf("Webhook Create Response Body: %s\n", string(httpResp.Body()))
+
+	if !resp.Success {
+		return nil, fmt.Errorf("webhook creation failed: %s", resp.Message)
+	}
+
 	return resp, nil
 }
 
 func (s *WebhookService) GetAll(ctx context.Context, appID string) (*WebhookListResponse, error) {
 	resp := &WebhookListResponse{}
-	_, err := s.client.resty.R().
+	httpResp, err := s.client.resty.R().
 		SetContext(ctx).
 		SetQueryParam("appId", appID).
 		SetResult(resp).
 		Get("/webhooks")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get webhooks: %w", err)
 	}
+
+	// Debug logging
+	fmt.Printf("Webhook List Response Status: %s\n", httpResp.Status())
+	fmt.Printf("Webhook List Response Body: %s\n", string(httpResp.Body()))
+
+	if !resp.Success {
+		return nil, fmt.Errorf("webhook list retrieval failed: %s", resp.Message)
+	}
+
+	// Ensure each webhook has its auth method properly set
+	for i := range resp.Data {
+		if resp.Data[i].AuthMethod == nil {
+			// If authMethod is nil but we have auth data in the response,
+			// try to reconstruct it from the raw response
+			var rawData map[string]interface{}
+			if err := json.Unmarshal(httpResp.Body(), &rawData); err == nil {
+				if data, ok := rawData["data"].([]interface{}); ok && i < len(data) {
+					if webhook, ok := data[i].(map[string]interface{}); ok {
+						if authMethod, ok := webhook["authMethod"].(map[string]interface{}); ok {
+							resp.Data[i].AuthMethod = &WebhookAuth{
+								Method:     AuthMethod(authMethod["method"].(string)),
+								HMACHeader: authMethod["hmacHeader"].(string),
+								HMACSecret: authMethod["hmacSecret"].(string),
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	return resp, nil
 }
 
 func (s *WebhookService) GetOne(ctx context.Context, webhookID string) (*WebhookResponse, error) {
 	resp := &WebhookResponse{}
-	_, err := s.client.resty.R().
+	httpResp, err := s.client.resty.R().
 		SetContext(ctx).
 		SetResult(resp).
 		Get("/webhooks/" + webhookID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get webhook: %w", err)
 	}
+
+	// Debug logging
+	fmt.Printf("Webhook Get Response Status: %s\n", httpResp.Status())
+	fmt.Printf("Webhook Get Response Body: %s\n", string(httpResp.Body()))
+
+	if !resp.Success {
+		return nil, fmt.Errorf("webhook retrieval failed: %s", resp.Message)
+	}
+
 	return resp, nil
 }
 

@@ -43,19 +43,23 @@ func TestWebhookIntegration(t *testing.T) {
 		assert.NoError(t, err, "Failed to cleanup test app")
 	}()
 
-	// Test Webhook Creation
-	webhookName := "Test Webhook " + time.Now().Format(time.RFC3339)
+	// Test Webhook Creation with HMAC auth
 	webhook, err := client.Webhook.Create(ctx, &CreateWebhookRequest{
-		Name:  webhookName,
-		URL:   "https://example.com/webhook",
-		AppID: appID,
+		URL:        "https://example.com/webhook",
+		AppID:      appID,
+		AuthMethod: string(AuthMethodHMAC),
+		HMACHeader: "x-Vartiq-signature",
+		HMACSecret: "testsecret123",
 		CustomHeaders: []Header{
 			{Key: "Content-Type", Value: "application/json"},
 		},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, webhook)
-	assert.Equal(t, webhookName, webhook.Data.Name)
+	assert.NotNil(t, webhook.Data.AuthMethod)
+	assert.Equal(t, AuthMethodHMAC, webhook.Data.AuthMethod.Method)
+	assert.Equal(t, "x-Vartiq-signature", webhook.Data.AuthMethod.HMACHeader)
+	assert.Equal(t, "testsecret123", webhook.Data.AuthMethod.HMACSecret)
 
 	// Store webhook ID for cleanup
 	webhookID := webhook.Data.ID
@@ -68,7 +72,10 @@ func TestWebhookIntegration(t *testing.T) {
 	retrieved, err := client.Webhook.GetOne(ctx, webhookID)
 	require.NoError(t, err)
 	assert.Equal(t, webhookID, retrieved.Data.ID)
-	assert.Equal(t, webhookName, retrieved.Data.Name)
+	assert.NotNil(t, retrieved.Data.AuthMethod)
+	assert.Equal(t, AuthMethodHMAC, retrieved.Data.AuthMethod.Method)
+	assert.Equal(t, "x-Vartiq-signature", retrieved.Data.AuthMethod.HMACHeader)
+	assert.Equal(t, "testsecret123", retrieved.Data.AuthMethod.HMACSecret)
 	assert.True(t, retrieved.Success)
 	assert.NotEmpty(t, retrieved.Message)
 
@@ -88,18 +95,17 @@ func TestWebhookIntegration(t *testing.T) {
 	assert.NotEmpty(t, webhooks.Message)
 
 	// Test Webhook Update
-	updatedName := "Updated " + webhookName
 	updated, err := client.Webhook.Update(ctx, webhookID, map[string]interface{}{
-		"name": updatedName,
+		"url": "https://example.com/updated-webhook",
 	})
 	require.NoError(t, err)
-	assert.Equal(t, updatedName, updated.Data.Name)
+	assert.Equal(t, "https://example.com/updated-webhook", updated.Data.URL)
 	assert.True(t, updated.Success)
 	assert.NotEmpty(t, updated.Message)
 
 	// Test Webhook Verification
 	payload := []byte(`{"test":"data"}`)
-	secret := webhook.Data.Secret
+	secret := webhook.Data.AuthMethod.HMACSecret
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write(payload)
 	signature := hex.EncodeToString(mac.Sum(nil))

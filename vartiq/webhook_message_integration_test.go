@@ -41,9 +41,7 @@ func TestWebhookMessageIntegration(t *testing.T) {
 	}()
 
 	// Create a webhook
-	webhookName := "Test Webhook for Messages " + time.Now().Format(time.RFC3339)
 	webhook, err := client.Webhook.Create(ctx, &CreateWebhookRequest{
-		Name:  webhookName,
 		URL:   "https://example.com/webhook",
 		AppID: appID,
 		CustomHeaders: []Header{

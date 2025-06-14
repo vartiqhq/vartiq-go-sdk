@@ -27,7 +27,6 @@ func TestWebhookAuth_Validation(t *testing.T) {
 		{
 			name: "Valid Basic Auth",
 			request: &CreateWebhookRequest{
-				Name:       "Test",
 				URL:        "http://example.com",
 				AppID:      "appId",
 				AuthMethod: string(AuthMethodBasic),
@@ -39,7 +38,6 @@ func TestWebhookAuth_Validation(t *testing.T) {
 		{
 			name: "Invalid Basic Auth - Missing Username",
 			request: &CreateWebhookRequest{
-				Name:       "Test",
 				URL:        "http://example.com",
 				AppID:      "appId",
 				AuthMethod: string(AuthMethodBasic),
@@ -50,7 +48,6 @@ func TestWebhookAuth_Validation(t *testing.T) {
 		{
 			name: "Invalid Basic Auth - Missing Password",
 			request: &CreateWebhookRequest{
-				Name:       "Test",
 				URL:        "http://example.com",
 				AppID:      "appId",
 				AuthMethod: string(AuthMethodBasic),
@@ -61,7 +58,6 @@ func TestWebhookAuth_Validation(t *testing.T) {
 		{
 			name: "Valid API Key Auth",
 			request: &CreateWebhookRequest{
-				Name:         "Test",
 				URL:          "http://example.com",
 				AppID:        "appId",
 				AuthMethod:   string(AuthMethodAPIKey),
@@ -73,7 +69,6 @@ func TestWebhookAuth_Validation(t *testing.T) {
 		{
 			name: "Invalid API Key Auth - Missing Key",
 			request: &CreateWebhookRequest{
-				Name:         "Test",
 				URL:          "http://example.com",
 				AppID:        "appId",
 				AuthMethod:   string(AuthMethodAPIKey),
@@ -84,11 +79,10 @@ func TestWebhookAuth_Validation(t *testing.T) {
 		{
 			name: "Valid HMAC Auth",
 			request: &CreateWebhookRequest{
-				Name:       "Test",
 				URL:        "http://example.com",
 				AppID:      "appId",
 				AuthMethod: string(AuthMethodHMAC),
-				HMACHeader: "X-Signature",
+				HMACHeader: "x-Vartiq-signature",
 				HMACSecret: "secret123",
 			},
 			expectedError: "",
@@ -96,18 +90,16 @@ func TestWebhookAuth_Validation(t *testing.T) {
 		{
 			name: "Invalid HMAC Auth - Missing Secret",
 			request: &CreateWebhookRequest{
-				Name:       "Test",
 				URL:        "http://example.com",
 				AppID:      "appId",
 				AuthMethod: string(AuthMethodHMAC),
-				HMACHeader: "X-Signature",
+				HMACHeader: "x-Vartiq-signature",
 			},
 			expectedError: "for hmac auth, hmacHeader and hmacSecret are required",
 		},
 		{
 			name: "Invalid Auth Method",
 			request: &CreateWebhookRequest{
-				Name:       "Test",
 				URL:        "http://example.com",
 				AppID:      "appId",
 				AuthMethod: "invalid",
@@ -117,7 +109,6 @@ func TestWebhookAuth_Validation(t *testing.T) {
 		{
 			name: "No Auth",
 			request: &CreateWebhookRequest{
-				Name:  "Test",
 				URL:   "http://example.com",
 				AppID: "appId",
 			},
@@ -150,7 +141,6 @@ func TestWebhookService_Create(t *testing.T) {
 		{
 			name: "Basic request without auth",
 			request: &CreateWebhookRequest{
-				Name:  "Test",
 				URL:   "http://example.com",
 				AppID: "appId",
 			},
@@ -159,7 +149,6 @@ func TestWebhookService_Create(t *testing.T) {
 		{
 			name: "Request with valid basic auth",
 			request: &CreateWebhookRequest{
-				Name:       "Test",
 				URL:        "http://example.com",
 				AppID:      "appId",
 				AuthMethod: string(AuthMethodBasic),
@@ -171,7 +160,6 @@ func TestWebhookService_Create(t *testing.T) {
 		{
 			name: "Request with invalid auth",
 			request: &CreateWebhookRequest{
-				Name:       "Test",
 				URL:        "http://example.com",
 				AppID:      "appId",
 				AuthMethod: string(AuthMethodBasic),
@@ -182,11 +170,10 @@ func TestWebhookService_Create(t *testing.T) {
 		{
 			name: "Request with HMAC auth",
 			request: &CreateWebhookRequest{
-				Name:       "Test",
 				URL:        "http://example.com",
 				AppID:      "appId",
 				AuthMethod: string(AuthMethodHMAC),
-				HMACHeader: "X-Signature",
+				HMACHeader: "x-Vartiq-signature",
 				HMACSecret: "secret123",
 			},
 			expectedError: true, // Because the mock client will fail
